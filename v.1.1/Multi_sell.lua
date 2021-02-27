@@ -142,7 +142,7 @@ local ITEM_TO_BUY = {
 		lot = 3,
 		minStock = 500,
 		maxPrice = 15000,
-		weight = 20,
+		weight = 2,
 		type = "ressource"
 	},	
 }

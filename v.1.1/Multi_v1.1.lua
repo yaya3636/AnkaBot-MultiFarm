@@ -58,13 +58,23 @@ local WORKTIME_JOB = {
 
     },
     ["Samedi"] = {
-
+        { startTime = "20:00", finishTime = "22:43", job = "Mineur" },
+        { startTime = "22:43", finishTime = "00:50", job = "Alchimiste" }
     },
     ["Dimanche"] = {
-        { startTime = "21:00", finishTime = "22:17", job = "Mineur" },
-        { startTime = "22:17", finishTime = "00:07", job = "Bucheron" }
+        { startTime = "00:50", finishTime = "03:22", job = "Bucheron" },
+        { startTime = "03:22", finishTime = "07:12", job = "Pause" },
+        { startTime = "07:12", finishTime = "10:14", job = "Mineur" },
+        { startTime = "10:14", finishTime = "12:50", job = "Alchimiste" }
     }
 }
+
+-- Monture
+
+local minMountEnergy = 3000
+local maxMountEnergy = 6400
+
+local ID_ITEM_FEED_MOUNT = { 1782 }
 
 -- Script var
 
@@ -185,8 +195,22 @@ function func:Move()
         return self:TradeMode()
     end
 
-    if not updatedPriceItem then
+    if not updatedPriceItem and self:HdvNeedUpdate() then
         return self:TradeMode()
+    end
+
+    if mount:hasMount() then
+        if self:MountNeedFeed() then
+            for _, v in pairs(ID_ITEM_FEED_MOUNT) do
+                if inventory:itemCount(v) > 0 then
+                    mount:feedMount(v, inventory:itemCount(v))
+                    return self:Move()
+                end
+            end
+            self:Print("La monture a besoin d'energie !", "mount")
+            checkCraft = false
+            return self:FinDeBoucle()
+        end
     end
 
     if self:IsJob() then
@@ -700,6 +724,11 @@ end
 -- Auto craft
 
 function func:InBank()
+    if exchange:storageKamas() > 0 then
+        self:Print("Récupération des kamas dans la banque, kamas = "..exchange:storageKamas().." K", "bank")
+        exchange:getKamas(0)
+    end
+
     self:ResetCraftVar()
     self:SetCurrentItem()
 
@@ -725,13 +754,25 @@ function func:InBank()
         GATHER_ALL_RESOURCES_OF_JOB = true
     end
 
+    -- Monture
+
+    if not goCraft and mount:hasMount() then
+        if self:MountNeedFeed() then
+            local totalNeedItem = math.floor((maxMountEnergy - mount:getEnergy()) / 20)
+
+            for _, v in pairs(ID_ITEM_FEED_MOUNT) do
+                if exchange:storageItemQuantity(v) > totalNeedItem then
+                    exchange:getItem(v, totalNeedItem)
+                end
+            end
+        end
+    end
 
     -- AutoSell
 
     if AUTO_SELL and not goCraft then
-        --self:CheckItemToBuy()
-        self:CheckPossibleSell()
-        self:Print("Go mettre a jour le prix des items dans les HDV et vendre les items si il y en a !", "sell")
+        self:CheckItemToSell()
+        self:CheckItemToBuy()
     end
 
     global:leaveDialog()
@@ -1026,13 +1067,28 @@ function func:TradeMode()
                 TRADE_ITEM.IN_SELL[hdvToGo].itemOnSale = true
                 TRADE_ITEM.IN_SELL[hdvToGo].updated = true
                 selectedHdv = false
+                global:leaveDialog()  
             end
         end
-
-        goSell = false
         checkCraft = false
+        goSell = false
     elseif goBuy then
+        while self:CheckIfThereAreItemsToTrade(TRADE_ITEM.BUY) do
+            if not selectedHdv then
+                hdvToGo = self:SelectHDV(TRADE_ITEM.BUY)
+                selectedHdv = true
 
+                return PATH_SELL.BONTA.GO_HDV(hdvToGo)
+            else
+                PATH_SELL.BONTA.USE_HDV("buy")
+                self:BuyItem(TRADE_ITEM.BUY[hdvToGo])
+                TRADE_ITEM.BUY[hdvToGo] = {}
+                selectedHdv = false
+                global:leaveDialog()  
+            end
+        end
+        checkCraft = false
+        goBuy = false
     elseif not updatedPriceItem then
         for k, v in pairs(TRADE_ITEM.IN_SELL) do
             if not v.updated and v.itemOnSale then
@@ -1045,9 +1101,9 @@ function func:TradeMode()
                     if sale:itemsOnSale() > 0 then
                         self:UpdateSellItems()
                         v.updated = true
-                        global:leaveDialog()
                     end
                     selectedHdv = false
+                    global:leaveDialog()  
                 end        
             end                   
         end
@@ -1079,7 +1135,7 @@ function func:SelectHDV(tbl)
     end
 end
 
-function func:CheckPossibleSell()
+function func:CheckItemToSell()
     self:ResetSellVar()
 
     for _, v in pairs(ITEM_TO_SELL) do
@@ -1098,8 +1154,32 @@ function func:CheckPossibleSell()
 end
 
 function func:CheckItemToBuy()
+    for _, v in pairs(ITEM_TO_BUY) do
+        local itemQuantity = exchange:storageItemQuantity(v.idItem)
 
+        if itemQuantity < v.minStock then
+            self:Print("L'item "..v.name.." a besoin d'être acheter", 'buy')
+            local quantityToBuy = math.ceil((v.minStock - itemQuantity) / self:GetLot(v.lot))
 
+            for i = 0, quantityToBuy do
+                if self:RemainingPods() < (v.weight * (quantityToBuy * self:GetLot(v.lot))) then
+                    quantityToBuy = quantityToBuy - 1
+                else
+                    break
+                end
+            end
+
+            if quantityToBuy == 0 then
+                quantityToBuy = 1
+            end
+            
+            local item = v
+            item.quantity = quantityToBuy
+
+            goBuy = true
+            table.insert(TRADE_ITEM.BUY[v.type], item)
+        end
+    end
 end
 
 function func:GetLot(lot, index)
@@ -1137,8 +1217,14 @@ function func:SellItem(tbl)
 
         self:Print("L'objet "..vItemToSell.name.." a etait mis en vente x"..nbLotToSell.." pour le prix de "..sale:getPriceItem(vItemToSell.idItem, self:GetLot(vItemToSell.lot, true)))
     end
+end
 
-    global:leaveDialog()  
+function func:BuyItem(tbl)
+    for _, v in pairs(tbl) do
+        for i = 0, v.quantity do
+            sale:buyItem(v.idItem, self:GetLot(v.lot), v.maxPrice)
+        end
+    end
 end
 
 function func:UpdateSellItems()
@@ -1159,6 +1245,15 @@ function func:UpdateSellItems()
             end         
         end
     end
+end
+
+function func:HdvNeedUpdate()
+    for _, v in pairs(TRADE_ITEM.IN_SELL) do
+        if not v.updated and v.itemOnSale then
+            return true
+        end                   
+    end
+    return false
 end
 
 function func:CheckInSell()
@@ -1197,6 +1292,15 @@ function func:ResetSellVar()
     TRADE_ITEM.BUY.equipement = {}
     TRADE_ITEM.BUY.rune = {}
     goSell, goBuy = false, false
+end
+
+-- Monture
+
+function func:MountNeedFeed()
+    if mount:getEnergy() < minMountEnergy then
+        return true
+    end
+    return false
 end
 
 -- TP et havreSac
@@ -1430,6 +1534,7 @@ function func:deleteDoubleValue(tbl)
 end
 
 function func:ResetScript()
+    pathIndex, lastPathIndex, beforeLastPathIndex = nil, nil, nil
     nbBoucle = 0
     checkCraft = false
     goCraft = false
