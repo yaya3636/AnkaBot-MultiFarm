@@ -19,11 +19,12 @@ local FRIGOST3 = false
 
 local AUTO_CRAFT = true
 local AUTO_SELL = true
+local AUTO_BUY = true
 
 local ADD_ALL_PATH_OF_JOB = false
 local GATHER_ALL_RESOURCES_OF_JOB = true
 
-local TIME_PASS_ZONE = false
+local TIME_PASS_ZONE = true
 
 local pMin, pMax = 73, 92
 local bMin, bMax = 1, 2
@@ -71,7 +72,7 @@ local WORKTIME_JOB = {
 
 -- Monture
 
-local minMountEnergy = 3000
+local minMountEnergy = 600
 local maxMountEnergy = 6400
 
 local ID_ITEM_FEED_MOUNT = { 1782 }
@@ -99,7 +100,11 @@ local roadLoaded, readyToHunt = false, false
 
 local MAX_PODS = 101
 
-local tbLimit, nbBoucle, diffTime = 0, 0, 0
+local tbLimit, nbBoucle, diffTime, jobTime = 0, 0, 0, 0
+
+local initCheckTimePassZone = false
+
+local hStartTPZ, mStartTPZ = 0, 0
 
 local assignPathToGather, filterPathByTags, setPathToFarm = false, false, false
 
@@ -267,7 +272,7 @@ function func:GatherMode()
     end
 
     if TIME_PASS_ZONE then
-        timeZone()
+        self:CheckTimePassZone()
         jobTime = diffTime
     else
         jobTime = nbBoucle
@@ -772,6 +777,9 @@ function func:InBank()
 
     if AUTO_SELL and not goCraft then
         self:CheckItemToSell()
+    end
+
+    if AUTO_BUY and not goCraft then
         self:CheckItemToBuy()
     end
 
@@ -1249,7 +1257,7 @@ end
 
 function func:HdvNeedUpdate()
     for _, v in pairs(TRADE_ITEM.IN_SELL) do
-        if not v.updated and v.itemOnSale then
+        if not v.updated and v.itemOnSale or not v.checked then
             return true
         end                   
     end
@@ -1357,6 +1365,18 @@ end
 
 -- Gestion Temps, Assignation métier, Boucle, Reset var
 
+function func:CheckTimePassZone()
+    if not initCheckTimePassZone then
+        hStartTPZ, mStartTPZ = self:GenerateDateTime("hm")
+        initCheckTimePassZone = true
+    end
+
+    local curH, curM = self:GenerateDateTime("hm")
+
+    diffTime = self:DiffTime(hStartTPZ, mStartTPZ, curH, curM)
+    self:Print(diffTime)
+end
+
 function func:AssignJob(newJob)
     local day = os.date("%A")
     local hour, minute = tonumber(self:GenerateDateTime("h")), tonumber(self:GenerateDateTime("m"))
@@ -1368,7 +1388,10 @@ function func:AssignJob(newJob)
             for _, v in pairs(vTbl) do
                 local hourStart, minuteStart = tonumber(string.match(v.startTime, "%d%d")), tonumber(string.match(v.startTime, "%d%d", 2))
                 local hourFinish, minuteFinish = tonumber(string.match(v.finishTime, "%d%d")), tonumber(string.match(v.finishTime, "%d%d", 2))
-                if ((hour == hourStart and minute >= minuteStart) or hour > hourStart) and ((hour == hourFinish and minute < minuteFinish) or hour < hourFinish) then
+                if hourFinish == 0 then
+                    hourFinish = 24
+                end
+                if ((hour == hourStart and minute >= minuteStart) or hour > hourStart) and ((hour == hourFinish and minute < minuteFinish - 1) or hour < hourFinish) then
                     currentJob = string.lower(v.job)
                     nextTimeToReassignJob = v.finishTime
                 end
@@ -1445,6 +1468,9 @@ end
 function func:DiffTime(hStart, mStart, hFinish, mFinish)
     local diffTimeMin = 0
     while true do
+        if hStart == hFinish and mStart == mFinish then
+            return diffTimeMin
+        end
         if mStart == 60 then
             hStart = hStart + 1
             mStart = 0
@@ -1454,9 +1480,6 @@ function func:DiffTime(hStart, mStart, hFinish, mFinish)
         end
         diffTimeMin = diffTimeMin + 1
         mStart = mStart + 1
-        if hStart == hFinish and mStart == mFinish then
-            return diffTimeMin
-        end
     end
 end
 
@@ -1556,7 +1579,7 @@ function finDeBoucle() -- Reset de variables et teleporte au havre pour une nouv
     MULTIPLE_MAP:Reset()
     setPathToFarm = false
     teleported = false
-    --resetFuncTimeZone()
+    initCheckTimePassZone = false
     havreSac()
     global:delay(mediumDelay)
 end
