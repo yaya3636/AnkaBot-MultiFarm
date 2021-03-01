@@ -34,9 +34,14 @@ local DEPOT_MAISON = false
 
 local WORKTIME_JOB = {
     ["Lundi"] = {
-        { startTime = "20:07", finishTime = "21:12", job = "Chasse au trésor" },
-        { startTime = "21:12", finishTime = "23:47", job = "Bucheron" },
-        { startTime = "23:47", finishTime = "05:12", job = "Pause" }
+        { startTime = "05:12", finishTime = "10:14", job = "Mineur" },
+        { startTime = "10:14", finishTime = "12:04", job = "Alchimiste" },
+        { startTime = "12:04", finishTime = "13:12", job = "Pause" },
+        { startTime = "13:12", finishTime = "15:22", job = "Bucheron" },
+        { startTime = "15:22", finishTime = "17:43", job = "Mineur" },
+        { startTime = "17:43", finishTime = "20:58", job = "Alchimiste" },
+        { startTime = "20:58", finishTime = "23:22", job = "Bucheron" },
+        { startTime = "23:22", finishTime = "05:12", job = "Pause" },
     },
     ["Mardi"] = {
         { startTime = "20:12", finishTime = "23:45", job = "Mineur" },
@@ -60,13 +65,19 @@ local WORKTIME_JOB = {
     },
     ["Samedi"] = {
         { startTime = "20:00", finishTime = "22:43", job = "Mineur" },
-        { startTime = "22:43", finishTime = "00:50", job = "Alchimiste" }
+        { startTime = "22:43", finishTime = "00:02", job = "Alchimiste" }
     },
     ["Dimanche"] = {
-        { startTime = "00:50", finishTime = "03:22", job = "Bucheron" },
+        { startTime = "00:02", finishTime = "03:22", job = "Bucheron" },
         { startTime = "03:22", finishTime = "07:12", job = "Pause" },
         { startTime = "07:12", finishTime = "10:14", job = "Mineur" },
-        { startTime = "10:14", finishTime = "12:50", job = "Alchimiste" }
+        { startTime = "10:14", finishTime = "12:04", job = "Alchimiste" },
+        { startTime = "12:04", finishTime = "13:12", job = "Pause" },
+        { startTime = "13:12", finishTime = "15:22", job = "Bucheron" },
+        { startTime = "15:22", finishTime = "17:43", job = "Mineur" },
+        { startTime = "17:43", finishTime = "20:58", job = "Alchimiste" },
+        { startTime = "20:58", finishTime = "23:22", job = "Bucheron" },
+        { startTime = "23:22", finishTime = "05:12", job = "Pause" }
     }
 }
 
@@ -196,11 +207,7 @@ function func:Move()
         end
     end
 
-    if goSell or goBuy then
-        return self:TradeMode()
-    end
-
-    if not updatedPriceItem and self:HdvNeedUpdate() then
+    if (goSell or goBuy) or (not updatedPriceItem and self:HdvNeedUpdate()) then
         return self:TradeMode()
     end
 
@@ -215,6 +222,8 @@ function func:Move()
             self:Print("La monture a besoin d'energie !", "mount")
             checkCraft = false
             return self:FinDeBoucle()
+        elseif not mount:isRiding() then
+            mount:toggleRiding()
         end
     end
 
@@ -443,8 +452,8 @@ function func:PathReplace()
             table.insert(PATH_JOB.mineur, 3, PATH_REPLACE.mineur[5])
             table.remove(PATH_JOB.mineur, 4)
             table.insert(PATH_JOB.mineur, 4, PATH_REPLACE.mineur[6])
-            table.remove(PATH_JOB.mineur, 8)
-            table.insert(PATH_JOB.mineur, 8, PATH_REPLACE.mineur[20])
+            table.remove(PATH_JOB.mineur, 7)
+            table.insert(PATH_JOB.mineur, 7, PATH_REPLACE.mineur[20])
             table.remove(PATH_JOB.mineur, 13)
             table.insert(PATH_JOB.mineur, 13, PATH_REPLACE.mineur[7])
             mLvl60 = true
@@ -1257,7 +1266,7 @@ end
 
 function func:HdvNeedUpdate()
     for _, v in pairs(TRADE_ITEM.IN_SELL) do
-        if not v.updated and v.itemOnSale or not v.checked then
+        if (not v.updated and v.itemOnSale) or not v.checked then
             return true
         end                   
     end
@@ -1354,7 +1363,7 @@ function func:FinDeBoucle()
     MULTIPLE_MAP:Reset()
     setPathToFarm = false
     teleported = false
-    --resetFuncTimeZone()
+    initCheckTimePassZone = false
     if map:currentMapId() ~= 162791424 then
         self:HavreSac()
         global:delay(mediumDelay)
@@ -1368,13 +1377,13 @@ end
 function func:CheckTimePassZone()
     if not initCheckTimePassZone then
         hStartTPZ, mStartTPZ = self:GenerateDateTime("hm")
+        diffTime = 0
         initCheckTimePassZone = true
     end
 
     local curH, curM = self:GenerateDateTime("hm")
 
     diffTime = self:DiffTime(hStartTPZ, mStartTPZ, curH, curM)
-    self:Print(diffTime)
 end
 
 function func:AssignJob(newJob)
@@ -1575,13 +1584,7 @@ function bouclePlus() -- Incremente une boucle
 end
 
 function finDeBoucle() -- Reset de variables et teleporte au havre pour une nouvelle boucle
-    nbBoucle = 0
-    MULTIPLE_MAP:Reset()
-    setPathToFarm = false
-    teleported = false
-    initCheckTimePassZone = false
-    havreSac()
-    global:delay(mediumDelay)
+    return func:FinDeBoucle()
 end
 
 function Print(msg, header, msgType)

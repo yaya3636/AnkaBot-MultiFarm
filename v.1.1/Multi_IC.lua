@@ -258,7 +258,7 @@ local CRAFT = {
         },
         {
             name = "Potion de souvenir",
-            lot = nil,
+            lot = 100,
             nbItemsBeforeNextCraft = 500,
             active = true,
             lvlToDesactive = 201,
@@ -285,7 +285,7 @@ local CRAFT = {
             waitItemOfAnotherJob = false,
             ingredient = {
                 { name = "Trefle a 5 feuille", nbIng = 5, idItem = 395, job = "alchimiste" },
-                { name = "Oignon", nbIng = 1, idItem = 1975, job = "divers" },
+                { name = "Oignon", nbIng = 1, idItem = 1975, job = "divers", autoBuy = true },
                 { name = "Orge", nbIng = 1, idItem = 400 },
             }
         },
@@ -596,7 +596,7 @@ local CRAFT = {
         },
         {
             name = "Ebonite",
-            lot = 100,
+            lot = 25,
             nbItemsBeforeNextCraft = 100,
             active = true,
             lvlToDesactive = 201,
@@ -613,7 +613,7 @@ local CRAFT = {
         },
         {
             name = "Magnesite",
-            lot = nil,
+            lot = 25,
             nbItemsBeforeNextCraft = 100,
             active = true,
             lvlToDesactive = 201,
@@ -708,7 +708,7 @@ local CRAFT = {
         },
         {
             name = "Rutile",
-            lot = nil,
+            lot = 10,
             nbItemsBeforeNextCraft = 10,
             active = true,
             lvlToDesactive = 201,
@@ -729,7 +729,7 @@ local CRAFT = {
         },
         {
             name = "Pyrute",
-            lot = nil,
+            lot = 10,
             nbItemsBeforeNextCraft = 10,
             active = true,
             lvlToDesactive = 201,
