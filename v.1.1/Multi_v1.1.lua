@@ -894,7 +894,7 @@ function func:CheckPossibleCraft()
         
         --self:Print(vCraft.name .. " active = " .. tostring(vCraft.active) .. ", crafted = " .. tostring(vCraft.crafted) .. ", waitItemOfAnotherJob = " ..tostring(vCraft.waitItemOfAnotherJob))
 
-        if vCraft.active and not vCraft.crafted and not vCraft.waitItemOfAnotherJob then
+        if vCraft.active and not vCraft.crafted and not vCraft.waitItemOfAnotherJob and job:level(currentIdJob) >= vCraft.minLevel then
             local lot, canCraft, tblIngredient, errMsg = self:CanCraft(vCraft.name)
             self:Print("Looking for craft " ..vCraft.name, "craft")
 
