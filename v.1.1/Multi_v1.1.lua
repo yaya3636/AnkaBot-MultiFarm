@@ -3,11 +3,13 @@ local func = {}
 
 local currentDirectory = "F:\\DofusBotting\\LuaScript\\SnowScript + IA\\MultiMetier\\v.1.1\\"
 
-local MAPS_BEFORE_HAVENBAG, RETOUR_BANK, PATH_CRAFT, PATH_JOB, PATH_REPLACE = dofile(currentDirectory.."Multi_path.lua")
+local MAPS_BEFORE_HAVENBAG, RETOUR_BANK, PATH_CRAFT, PATH_JOB, PATH_REPLACE, FREE_MODE_PATH = dofile(currentDirectory.."Multi_path.lua")
 
 local CRAFT, ITEM = dofile(currentDirectory.."Multi_IC.lua")
 
 local PATH_SELL, ITEM_TO_SELL, ITEM_TO_BUY = dofile(currentDirectory.."Multi_sell.lua")
+
+local RETOUR_MAISON = {}
 
 -- User option
 
@@ -97,7 +99,7 @@ local lowDelay, baseDelay, longDelay = 250, 500, 1000
 
 local name, level, kamas, isFreeMode
 
-local teleported, tpBank = false, false
+local teleported, tpBank, inHouse = false, false, false
 
 local currentJob, currentIdJob = "", 0
 
@@ -182,66 +184,53 @@ function func:Move()
         self:PauseScript()
     end
 
-    if not checkCraft then
-        if DEPOT_MAISON then
-            if not teleported then
-                return RETOUR_MAISON.TP()
-            end
-            return RETOUR_MAISON.PATH()
-        else
-            if not teleported then
-                return RETOUR_BANK.TP()
-            end
-            return RETOUR_BANK.PATH()
-        end
-    end
-
-    if goCraft then
-        for kPath, vPath in pairs(PATH_CRAFT) do
-            if kPath == currentJob then
-                if not teleported then
-                    return vPath.TP()
-                end
-                return vPath.PATH()
-            end
-        end
-    end
-
-    if (goSell or goBuy) or (not updatedPriceItem and self:HdvNeedUpdate()) then
-        return self:TradeMode()
-    end
-
-    if mount:hasMount() then
-        if self:MountNeedFeed() then
-            for _, v in pairs(ID_ITEM_FEED_MOUNT) do
-                if inventory:itemCount(v) > 0 then
-                    mount:feedMount(v, inventory:itemCount(v))
-                    return self:Move()
-                end
-            end
-            self:Print("La monture a besoin d'energie !", "mount")
-            checkCraft = false
-            return self:FinDeBoucle()
-        elseif not mount:isRiding() then
-            mount:toggleRiding()
-        end
-    end
-
-    if self:IsJob() then
-        return self:GatherMode()
-    elseif currentJob == "chasse au trésor" then
-        return self:TreasureHunt()
+    if isFreeMode then
+       return self:FreeMode()
     else
-        self:Print("Pas de job", "Move", "error")
+        if not checkCraft then
+            return self:Bank()
+        end
+
+        if goCraft then
+            if not teleported then
+                return self:GetTableJob(PATH_CRAFT).TP()
+            end
+            return self:GetTableJob(PATH_CRAFT).PATH()
+        end
+
+        if (goSell or goBuy) or (not updatedPriceItem and self:HdvNeedUpdate()) then
+            return self:TradeMode()
+        end
+
+        if mount:hasMount() then
+            if self:MountNeedFeed() then
+                for _, v in pairs(ID_ITEM_FEED_MOUNT) do
+                    if inventory:itemCount(v) > 0 then
+                        mount:feedMount(v, inventory:itemCount(v))
+                        return self:Move()
+                    end
+                end
+                self:Print("La monture a besoin d'energie !", "mount")
+                checkCraft = false
+                return self:FinDeBoucle()
+            elseif not mount:isRiding() then
+                mount:toggleRiding()
+            end
+        end
+
+        if self:IsJob() then
+            return self:GatherMode()
+        elseif currentJob == "chasse au trésor" then
+            return self:TreasureHunt()
+        else
+            self:Print("Pas de job", "Move", "error")
+        end
     end
 end
 
 function func:Bank()
     if DEPOT_MAISON then
-        if not tpBank then
-            return RETOUR_MAISON.TP()
-        end
-        return RETOUR_MAISON.PATH()
+        return self:GoHouse()
     else
         if not tpBank then
             return RETOUR_BANK.TP()
@@ -259,9 +248,81 @@ function func:Initialisation()
     name = character:name()
     level = character:level()
     kamas = character:kamas()
-    isFreeMode = character:freeMode()    
+    isFreeMode = character:freeMode()
+    if DEPOT_MAISON then
+        RETOUR_MAISON = dofile(currentDirectory.."Multi_House.lua")
+    end  
     self:AssignJob()
     self:StarterMsgInfo()
+end
+
+-- House
+
+function func:GoHouse()
+
+    if map:currentMapId() ~= RETOUR_MAISON.outHouseMapId and not inHouse then
+        if not roadLoaded then
+             if not map:loadRoadToMapId(RETOUR_MAISON.outHouseMapId) then
+                self:print("Impossible de charger un chemin en destination de la maison", "BANK", "error")
+             end
+        end
+
+        if not tpBank then
+            if map:currentMapId() == 162791424 then
+                tpBank = true
+                return self:UseZaap(RETOUR_MAISON.outHouseMapId)
+            else
+                return self:HavreSac()
+            end
+        end
+
+        if map:currentMapId() ~= RETOUR_MAISON.outHouseMapId then
+            map:moveRoadNext()
+        else
+            inHouse = true
+            roadLoaded = false
+        end       
+    end
+
+    if map:currentMapId() == RETOUR_MAISON.outHouseMapId then
+        map:lockedHouse(RETOUR_MAISON.doorHouseCellId, RETOUR_MAISON.doorPass, RETOUR_MAISON.owner)
+    end
+
+    for _, v in pairs(RETOUR_MAISON.houseMapId) do
+        if v.chest then
+            map:lockedStorage(RETOUR_MAISON.chestCellId, RETOUR_MAISON.chestPass)
+            global:delay(3000)
+            exchange:putAllItems()
+            return self:InBank()
+        end
+
+        if map:currentMapId() == v.map then
+            map:door(tonumber(v.path))
+        end
+    end
+
+end
+
+-- Free Mode
+
+function func:FreeMode()
+    self:Print("Le mode non abonné n'est pas encore gérer", "FREE MODE", "error")
+    global:finishScript()
+end
+
+function func:GoIncarnam()
+    if not roadLoaded then
+        map:loadRoadToMapId(192416776)
+        roadLoaded = true
+    end
+
+    if map:currentMapId() == 192416776 then
+        roadLoaded = false
+        teleported = true
+        map:useById(515866, -1)
+    end
+
+    map:moveRoadNext()
 end
 
 -- Gather
@@ -796,6 +857,7 @@ function func:InBank()
 
     teleported = false
     tpBank = false
+    inHouse = false
     filterPathByTags = false
     assignPathToGather = false
     updatedPriceItem = false
@@ -1391,19 +1453,28 @@ function func:AssignJob(newJob)
     local hour, minute = tonumber(self:GenerateDateTime("h")), tonumber(self:GenerateDateTime("m"))
 
     for kDay, vTbl in pairs(WORKTIME_JOB) do
+        --self:Print(kDay .. " | " .. day)
         if string.lower(kDay) == string.lower(day) then
-            local jobHourStartedTime, JobMinuteStartedTime = 0, 0
-            local goBreak = false
+            local jobAssign = false
             for _, v in pairs(vTbl) do
                 local hourStart, minuteStart = tonumber(string.match(v.startTime, "%d%d")), tonumber(string.match(v.startTime, "%d%d", 2))
                 local hourFinish, minuteFinish = tonumber(string.match(v.finishTime, "%d%d")), tonumber(string.match(v.finishTime, "%d%d", 2))
+                --self:Print(hour .. ":" .. minute)
+                --self:Print(hourStart .. ":" .. minuteStart .. " | " .. hourFinish .. ":" .. minuteFinish)
                 if hourFinish == 0 then
                     hourFinish = 24
                 end
                 if ((hour == hourStart and minute >= minuteStart) or hour > hourStart) and ((hour == hourFinish and minute < minuteFinish - 1) or hour < hourFinish) then
                     currentJob = string.lower(v.job)
                     nextTimeToReassignJob = v.finishTime
+                    jobAssign = true
+                    break
                 end
+            end
+
+            if not jobAssign then               
+                self:Print("Impossible d'assigner un métier, vérifier la table WORKTIME", "JOB", "error")
+                global:finishScript()
             end
         end
     end
