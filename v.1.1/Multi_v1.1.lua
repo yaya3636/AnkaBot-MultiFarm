@@ -72,7 +72,7 @@ local WORKTIME_JOB = {
     ["Dimanche"] = {
         { startTime = "00:02", finishTime = "03:22", job = "Bucheron" },
         { startTime = "03:22", finishTime = "07:12", job = "Pause" },
-        { startTime = "07:12", finishTime = "10:14", job = "Mineur" },
+        { startTime = "07:12", finishTime = "10:14", job = "Alchimiste" },
         { startTime = "10:14", finishTime = "12:04", job = "Alchimiste" },
         { startTime = "12:04", finishTime = "13:12", job = "Pause" },
         { startTime = "13:12", finishTime = "15:22", job = "Bucheron" },
@@ -251,7 +251,11 @@ function func:Initialisation()
     isFreeMode = character:freeMode()
     if DEPOT_MAISON then
         RETOUR_MAISON = dofile(currentDirectory.."Multi_House.lua")
-    end  
+    end
+    if not AUTO_CRAFT then
+        ADD_ALL_PATH_OF_JOB = true
+        GATHER_ALL_RESOURCES_OF_JOB = true
+    end
     self:AssignJob()
     self:StarterMsgInfo()
 end
@@ -820,6 +824,7 @@ function func:InBank()
                 self:Print("Aucun craft disponible désactivation temporaire de l'autoCraft !", "CRAFT", "error")
                 AUTO_CRAFT = false
                 GATHER_ALL_RESOURCES_OF_JOB = true
+                ADD_ALL_PATH_OF_JOB = true
             else
                 self:LoopEndCraft()
                 self:CheckPossibleCraft()
