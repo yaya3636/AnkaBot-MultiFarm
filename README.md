@@ -94,3 +94,17 @@ Pour la gestion des vente et achat ouvrez le fichier **Multi_sell.lua** et vous 
     5. **minPrice** Ne met pas l'objet en vente en dessous de cette valeur et n'update pas le prix en dessous de la valeur
     6. **weight** Poid de l'item
     7. **type** Type de l'hdv ( ressource, consommable, equipement, rune )
+
+### Retour maison
+
+Pour activer le retour maison, ouvrez le fichier **Multi_House.lua** et vous tomberez sur quelque chose qui ressemble a ça
+![GitHub Logo](/img/Maison.png)
+
+1. **outHouseMapId** MapId extérieur de la maison
+2. **houseMapId** MapId intérieur de la maison sous forme de tableau, map = mapId, path = cellId escalier, mettre chest = true quand vous êtes sur la map du coffre
+3. **owner** Pseudo du (compte) propriétaire de la maison
+4. **doorHouseCellId** cellid porte de la maison
+5. **doorPass** Mot de passe maison
+6. **chestCellId** cellid du coffre
+7. **chestPass** Mot de passe du coffre
+8. N'oublier pas de mettre **DEPOT_MAISON** sur true dans **Multi_v.1.1.lua**
