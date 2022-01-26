@@ -1,6 +1,6 @@
 # SCRIPT PLUS MIS A JOUR ! Télécharger la v2 ici https://github.com/yaya3636/Ankabot-MultiFarm-V2.0
 
-# Script AnkaBot-MultiFarm By yaya#6140
+# Script AnkaBot-MultiFarm By Yaya#0355
 
 ## Présentation du script
 
